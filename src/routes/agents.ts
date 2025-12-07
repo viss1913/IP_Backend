@@ -15,6 +15,7 @@ interface AgentInput {
   login?: string;
   password?: string;
   website?: string;
+  telegram?: string;
   telegramChannel?: string;
   telegramBot?: string;
   city?: string;
@@ -32,6 +33,7 @@ interface AgentRow {
   login: string | null;
   password_hash: string | null;
   website: string | null;
+  telegram: string | null;
   telegram_channel: string | null;
   telegram_bot: string | null;
   city: string | null;
@@ -50,6 +52,7 @@ interface AgentResponse {
   email?: string;
   login?: string;
   website?: string;
+  telegram?: string;
   telegramChannel?: string;
   telegramBot?: string;
   city?: string;
@@ -95,6 +98,7 @@ function toCamelCase(row: AgentRow): AgentResponse {
     email: row.email || undefined,
     login: row.login || undefined,
     website: row.website || undefined,
+    telegram: row.telegram || undefined,
     telegramChannel: row.telegram_channel || undefined,
     telegramBot: row.telegram_bot || undefined,
     city: row.city || undefined,
@@ -117,6 +121,7 @@ router.post('/', async (req: Request, res: Response) => {
       login,
       password,
       website,
+      telegram,
       telegramChannel,
       telegramBot,
       city,
@@ -169,14 +174,14 @@ router.post('/', async (req: Request, res: Response) => {
 
     // Создание агента
     const id = uuidv4();
-    const now = new Date().toISOString();
     const referralLinksJson = referralLinks && referralLinks.length > 0 
       ? JSON.stringify(referralLinks) 
       : null;
 
+    // Не передаём created_at и updated_at - они заполнятся автоматически через DEFAULT CURRENT_TIMESTAMP
     await dbRun(
-      `INSERT INTO agents (id, first_name, last_name, middle_name, phone, email, login, password_hash, website, telegram_channel, telegram_bot, city, bank_details, referral_links, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO agents (id, first_name, last_name, middle_name, phone, email, login, password_hash, website, telegram, telegram_channel, telegram_bot, city, bank_details, referral_links)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         firstName.trim(),
@@ -187,13 +192,12 @@ router.post('/', async (req: Request, res: Response) => {
         login?.trim() || null,
         passwordHash,
         website?.trim() || null,
+        telegram?.trim() || null,
         telegramChannel?.trim() || null,
         telegramBot?.trim() || null,
         city?.trim() || null,
         bankDetails?.trim() || null,
         referralLinksJson,
-        now,
-        now,
       ]
     );
 
@@ -282,6 +286,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
       phone,
       email,
       website,
+      telegram,
       telegramChannel,
       telegramBot,
       city,
@@ -348,6 +353,11 @@ router.patch('/:id', async (req: Request, res: Response) => {
     if (website !== undefined) {
       updates.push('website = ?');
       params.push(website?.trim() || null);
+    }
+
+    if (telegram !== undefined) {
+      updates.push('telegram = ?');
+      params.push(telegram?.trim() || null);
     }
 
     if (telegramChannel !== undefined) {

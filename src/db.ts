@@ -91,6 +91,7 @@ export async function initDatabase(): Promise<void> {
         login VARCHAR(255) UNIQUE,
         password_hash VARCHAR(255),
         website VARCHAR(255),
+        telegram VARCHAR(255),
         telegram_channel VARCHAR(255),
         telegram_bot VARCHAR(255),
         city VARCHAR(255),
@@ -100,6 +101,15 @@ export async function initDatabase(): Promise<void> {
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
+
+    // Добавляем колонку telegram, если таблица уже существовала
+    try {
+      await dbRun(`ALTER TABLE agents ADD COLUMN telegram VARCHAR(255)`);
+    } catch (error: any) {
+      if (error.code !== 'ER_DUP_FIELDNAME') {
+        throw error;
+      }
+    }
 
     // Добавляем колонки login и password_hash, если таблица уже существовала
     try {
@@ -159,7 +169,10 @@ async function createDefaultAgent(): Promise<void> {
       const phone = process.env.DEFAULT_AGENT_PHONE || '+79773575301';
       const email = process.env.DEFAULT_AGENT_EMAIL || 'vissarovav@bank-future.com';
       const city = process.env.DEFAULT_AGENT_CITY || 'Москва';
-      const telegramChannel = process.env.DEFAULT_AGENT_TELEGRAM || '@alex_vitte';
+      const website = process.env.DEFAULT_AGENT_WEBSITE || 'https://www.vissarov-consulting.ru/';
+      const telegram = process.env.DEFAULT_AGENT_TELEGRAM || '@alex_vitte';
+      const telegramChannel = process.env.DEFAULT_AGENT_TELEGRAM_CHANNEL || 'https://t.me/vissarov_pensia';
+      const telegramBot = process.env.DEFAULT_AGENT_TELEGRAM_BOT || 'https://t.me/aiAsolbot';
       
       // Логин и пароль для дефолтного агента
       const login = process.env.DEFAULT_AGENT_LOGIN || 'admin';
@@ -171,8 +184,8 @@ async function createDefaultAgent(): Promise<void> {
 
       // Не передаём created_at и updated_at - они заполнятся автоматически через DEFAULT CURRENT_TIMESTAMP
       await dbRun(
-        `INSERT INTO agents (id, first_name, last_name, middle_name, phone, email, login, password_hash, city, telegram_channel)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO agents (id, first_name, last_name, middle_name, phone, email, login, password_hash, city, website, telegram, telegram_channel, telegram_bot)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           defaultAgentId,
           firstName,
@@ -183,13 +196,18 @@ async function createDefaultAgent(): Promise<void> {
           login,
           passwordHash,
           city,
+          website,
+          telegram,
           telegramChannel,
+          telegramBot,
         ]
       );
 
       console.log(`Default agent created: ${lastName} ${firstName} (ID: ${defaultAgentId})`);
       console.log(`Login: ${login}, Password: ${password}`);
-      console.log(`Email: ${email}, Phone: ${phone}, Telegram: ${telegramChannel}`);
+      console.log(`Email: ${email}, Phone: ${phone}`);
+      console.log(`Website: ${website}`);
+      console.log(`Telegram: ${telegram}, Channel: ${telegramChannel}, Bot: ${telegramBot}`);
       console.log('⚠️  IMPORTANT: Change default password after first login!');
     }
   } catch (error) {
