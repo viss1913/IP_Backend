@@ -6,15 +6,20 @@ const router = Router();
 
 // Интерфейсы для типизации
 interface LeadInput {
+  // Старый формат (для совместимости)
   source: string;
-  firstName: string;
-  lastName: string;
+  firstName?: string;
+  lastName?: string;
   middleName?: string;
-  phone: string;
+  phone?: string;
   email?: string;
   preferredTime?: string;
   comment?: string;
   idAgent?: string;
+  // Новый упрощённый формат (для фронтенда)
+  name?: string; // Полное имя (будет разбито на firstName/lastName)
+  contacts?: string; // Телефон или @Telegram
+  telegram?: string; // Телеграм клиента
 }
 
 interface LeadRow {
@@ -23,7 +28,8 @@ interface LeadRow {
   first_name: string;
   last_name: string;
   middle_name: string | null;
-  phone: string;
+  phone: string | null;
+  telegram: string | null;
   email: string | null;
   preferred_time: string | null;
   comment: string | null;
@@ -39,7 +45,8 @@ interface LeadResponse {
   firstName: string;
   lastName: string;
   middleName?: string;
-  phone: string;
+  phone?: string;
+  telegram?: string;
   email?: string;
   preferredTime?: string;
   comment?: string;
@@ -67,7 +74,8 @@ function toCamelCase(row: LeadRow): LeadResponse {
     firstName: row.first_name,
     lastName: row.last_name,
     middleName: row.middle_name || undefined,
-    phone: row.phone,
+    phone: row.phone || undefined,
+    telegram: row.telegram || undefined,
     email: row.email || undefined,
     preferredTime: row.preferred_time || undefined,
     comment: row.comment || undefined,
@@ -78,10 +86,67 @@ function toCamelCase(row: LeadRow): LeadResponse {
   };
 }
 
+// Парсинг полного имени на firstName и lastName
+function parseName(fullName: string): { firstName: string; lastName: string; middleName?: string } {
+  const parts = fullName.trim().split(/\s+/).filter(p => p.length > 0);
+  
+  if (parts.length === 0) {
+    return { firstName: '', lastName: '' };
+  }
+  
+  if (parts.length === 1) {
+    return { firstName: parts[0], lastName: '' };
+  }
+  
+  if (parts.length === 2) {
+    return { firstName: parts[0], lastName: parts[1] };
+  }
+  
+  // Если 3+ части, считаем что первое - имя, последнее - фамилия, остальное - отчество
+  return {
+    firstName: parts[0],
+    lastName: parts[parts.length - 1],
+    middleName: parts.slice(1, -1).join(' ') || undefined,
+  };
+}
+
+// Определение типа контакта (телефон или телеграм)
+function parseContacts(contacts: string): { phone?: string; telegram?: string } {
+  const trimmed = contacts.trim();
+  
+  // Проверяем, это телеграм (начинается с @)
+  if (trimmed.startsWith('@')) {
+    return { telegram: trimmed };
+  }
+  
+  // Проверяем, это ссылка на телеграм
+  if (trimmed.includes('t.me/') || trimmed.includes('telegram.me/')) {
+    return { telegram: trimmed };
+  }
+  
+  // Иначе считаем телефоном
+  return { phone: trimmed };
+}
+
 // POST /api/leads - создание новой заявки
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { source, firstName, lastName, middleName, phone, email, preferredTime, comment, idAgent }: LeadInput = req.body;
+    const { 
+      source, 
+      // Старый формат
+      firstName: oldFirstName, 
+      lastName: oldLastName, 
+      middleName, 
+      phone: oldPhone, 
+      email, 
+      preferredTime, 
+      comment, 
+      idAgent,
+      // Новый упрощённый формат
+      name,
+      contacts,
+      telegram: directTelegram,
+    }: LeadInput = req.body;
 
     // Валидация обязательных полей
     const errors: Record<string, string> = {};
@@ -90,17 +155,59 @@ router.post('/', async (req: Request, res: Response) => {
       errors.source = 'Source is required';
     }
 
-    if (!firstName || typeof firstName !== 'string' || firstName.trim() === '') {
+    // Обработка имени: поддерживаем оба формата
+    let firstName: string = '';
+    let lastName: string = '';
+    let finalMiddleName: string | undefined = middleName;
+    
+    if (name) {
+      // Новый формат: парсим полное имя
+      const parsed = parseName(name);
+      firstName = parsed.firstName;
+      lastName = parsed.lastName;
+      if (parsed.middleName && !finalMiddleName) {
+        finalMiddleName = parsed.middleName;
+      }
+    } else if (oldFirstName && oldLastName) {
+      // Старый формат
+      firstName = oldFirstName;
+      lastName = oldLastName;
+    } else {
+      errors.name = 'Name is required (use "name" or "firstName" + "lastName")';
+    }
+
+    if (!firstName || firstName.trim() === '') {
       errors.firstName = 'First name is required';
     }
 
-    if (!lastName || typeof lastName !== 'string' || lastName.trim() === '') {
+    if (!lastName || lastName.trim() === '') {
       errors.lastName = 'Last name is required';
     }
 
-    if (!phone || typeof phone !== 'string' || phone.trim() === '') {
-      errors.phone = 'Phone is required';
-    } else if (!validatePhone(phone)) {
+    // Обработка контактов: телефон или телеграм
+    let phone: string | undefined;
+    let telegram: string | undefined;
+
+    if (contacts) {
+      // Новый формат: определяем тип контакта
+      const parsed = parseContacts(contacts);
+      phone = parsed.phone;
+      telegram = parsed.telegram;
+    } else if (directTelegram) {
+      // Прямая передача телеграма
+      telegram = directTelegram;
+    } else if (oldPhone) {
+      // Старый формат
+      phone = oldPhone;
+    }
+
+    // Проверяем, что есть хотя бы один контакт (телефон или телеграм)
+    if (!phone && !telegram) {
+      errors.contacts = 'Phone or Telegram contact is required';
+    }
+
+    // Валидация телефона, если передан
+    if (phone && !validatePhone(phone)) {
       errors.phone = 'Invalid phone format';
     }
 
@@ -111,32 +218,34 @@ router.post('/', async (req: Request, res: Response) => {
     // Создание заявки
     const id = uuidv4();
     const status = 'new';
-    const now = new Date().toISOString();
 
+    // Не передаём created_at и updated_at - они заполнятся автоматически через DEFAULT CURRENT_TIMESTAMP
     await dbRun(
-      `INSERT INTO leads (id, source, first_name, last_name, middle_name, phone, email, preferred_time, comment, id_agent, status, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO leads (id, source, first_name, last_name, middle_name, phone, telegram, email, preferred_time, comment, id_agent, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         source.trim(),
         firstName.trim(),
         lastName.trim(),
-        middleName?.trim() || null,
-        phone.trim(),
+        finalMiddleName?.trim() || null,
+        phone?.trim() || null,
+        telegram?.trim() || null,
         email?.trim() || null,
         preferredTime?.trim() || null,
         comment?.trim() || null,
         idAgent?.trim() || null,
         status,
-        now,
-        now,
       ]
     );
 
+    // Получаем созданную заявку для возврата полных данных
+    const createdLead = (await dbGet('SELECT * FROM leads WHERE id = ?', [id])) as LeadRow;
+
     res.status(201).json({
-      id,
-      status,
-      createdAt: now,
+      id: createdLead.id,
+      status: createdLead.status,
+      createdAt: createdLead.created_at,
     });
   } catch (error) {
     console.error('Error creating lead:', error);
@@ -205,7 +314,6 @@ router.patch('/:id', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'At least status or idAgent must be provided' });
     }
 
-    const updatedAt = new Date().toISOString();
     const updates: string[] = [];
     const params: any[] = [];
 
@@ -222,8 +330,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
       params.push(idAgent?.trim() || null);
     }
 
-    updates.push('updated_at = ?');
-    params.push(updatedAt);
+    // Не передаём updated_at - он обновится автоматически через ON UPDATE CURRENT_TIMESTAMP
     params.push(id);
 
     await dbRun(

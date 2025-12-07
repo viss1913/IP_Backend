@@ -22,48 +22,84 @@ paths:
               type: object
               required:
                 - source
-                - firstName
-                - lastName
-                - phone
-              properties:
-                source:
-                  type: string
-                  description: Источник заявки (consultation, career, contact и т.п.)
-                  example: "consultation"
-                firstName:
-                  type: string
-                  description: Имя клиента
-                  example: "Иван"
-                lastName:
-                  type: string
-                  description: Фамилия клиента
-                  example: "Иванов"
-                middleName:
-                  type: string
-                  description: Отчество клиента (опционально)
-                  example: "Иванович"
-                phone:
-                  type: string
-                  description: Номер телефона
-                  example: "+7 900 000-00-00"
-                email:
-                  type: string
-                  format: email
-                  description: Email адрес (опционально)
-                  example: "user@example.com"
-                preferredTime:
-                  type: string
-                  description: Желаемое время связи (опционально)
-                  example: "Будни, вечер"
-                comment:
-                  type: string
-                  description: Комментарий (опционально)
-                  example: "Хочу обсудить ПДС"
-                idAgent:
-                  type: string
-                  format: uuid
-                  description: ID агента, которому назначена заявка (опционально)
-                  example: "550e8400-e29b-41d4-a716-446655440000"
+              oneOf:
+                # Упрощённый формат (рекомендуется для фронтенда)
+                - required:
+                    - name
+                    - contacts
+                  properties:
+                    source:
+                      type: string
+                      description: Источник заявки (consultation, career, contact и т.п.)
+                      example: "consultation"
+                    name:
+                      type: string
+                      description: Полное имя клиента (будет автоматически разбито на имя/фамилию/отчество)
+                      example: "Иван Иванов"
+                    contacts:
+                      type: string
+                      description: Телефон или @Telegram (например: "+7 900 000-00-00" или "@username")
+                      example: "+7 900 000-00-00"
+                    preferredTime:
+                      type: string
+                      description: Желаемое время связи (опционально)
+                      example: "будни, вечер"
+                    comment:
+                      type: string
+                      description: Комментарий (опционально)
+                      example: "Хочу обсудить ПДС"
+                    idAgent:
+                      type: string
+                      format: uuid
+                      description: ID агента, которому назначена заявка (опционально)
+                      example: "550e8400-e29b-41d4-a716-446655440000"
+                # Старый формат (для совместимости)
+                - required:
+                    - firstName
+                    - lastName
+                  properties:
+                    source:
+                      type: string
+                      description: Источник заявки (consultation, career, contact и т.п.)
+                      example: "consultation"
+                    firstName:
+                      type: string
+                      description: Имя клиента
+                      example: "Иван"
+                    lastName:
+                      type: string
+                      description: Фамилия клиента
+                      example: "Иванов"
+                    middleName:
+                      type: string
+                      description: Отчество клиента (опционально)
+                      example: "Иванович"
+                    phone:
+                      type: string
+                      description: Номер телефона
+                      example: "+7 900 000-00-00"
+                    telegram:
+                      type: string
+                      description: Телеграм клиента (опционально, если не передан phone)
+                      example: "@username"
+                    email:
+                      type: string
+                      format: email
+                      description: Email адрес (опционально)
+                      example: "user@example.com"
+                    preferredTime:
+                      type: string
+                      description: Желаемое время связи (опционально)
+                      example: "Будни, вечер"
+                    comment:
+                      type: string
+                      description: Комментарий (опционально)
+                      example: "Хочу обсудить ПДС"
+                    idAgent:
+                      type: string
+                      format: uuid
+                      description: ID агента, которому назначена заявка (опционально)
+                      example: "550e8400-e29b-41d4-a716-446655440000"
       responses:
         '201':
           description: Заявка успешно создана
@@ -437,6 +473,13 @@ components:
           nullable: true
         phone:
           type: string
+          nullable: true
+          description: Номер телефона (опционально, если передан telegram)
+        telegram:
+          type: string
+          nullable: true
+          description: Телеграм клиента (опционально, если передан phone)
+          example: "@username"
         email:
           type: string
           format: email

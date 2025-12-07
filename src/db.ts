@@ -58,7 +58,8 @@ export async function initDatabase(): Promise<void> {
         first_name VARCHAR(255) NOT NULL,
         last_name VARCHAR(255) NOT NULL,
         middle_name VARCHAR(255),
-        phone VARCHAR(50) NOT NULL,
+        phone VARCHAR(50),
+        telegram VARCHAR(255),
         email VARCHAR(255),
         preferred_time VARCHAR(255),
         comment TEXT,
@@ -68,6 +69,25 @@ export async function initDatabase(): Promise<void> {
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
+
+    // Добавляем колонку telegram, если таблица уже существовала
+    try {
+      await dbRun(`ALTER TABLE leads ADD COLUMN telegram VARCHAR(255)`);
+    } catch (error: any) {
+      if (error.code !== 'ER_DUP_FIELDNAME') {
+        throw error;
+      }
+    }
+
+    // Делаем phone опциональным, если таблица уже существовала
+    try {
+      await dbRun(`ALTER TABLE leads MODIFY phone VARCHAR(50)`);
+    } catch (error: any) {
+      // Игнорируем ошибку, если уже изменено
+      if (error.code !== 'ER_BAD_FIELD_ERROR') {
+        console.warn('Could not modify phone column:', error.message);
+      }
+    }
 
     // Добавляем колонку id_agent, если таблица уже существовала
     try {
