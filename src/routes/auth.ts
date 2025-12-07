@@ -1,12 +1,12 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
+import jwt, { SignOptions } from 'jsonwebtoken';
 import { dbGet } from '../db';
 
 const router = Router();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+const JWT_SECRET: string = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_EXPIRES_IN: string = process.env.JWT_EXPIRES_IN || '7d';
 
 interface LoginRequest {
   login: string; // email или phone
@@ -55,16 +55,13 @@ router.post('/login', async (req: Request, res: Response) => {
     }
 
     // Создаём JWT токен
-    const token = jwt.sign(
-      {
-        id: agent.id,
-        login: agent.login,
-        firstName: agent.first_name,
-        lastName: agent.last_name,
-      },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
-    );
+    const payload = {
+      id: agent.id,
+      login: agent.login,
+      firstName: agent.first_name,
+      lastName: agent.last_name,
+    };
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN } as SignOptions);
 
     res.json({
       token,

@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_SECRET: string = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 /**
  * Middleware для проверки admin токена
@@ -38,7 +38,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 
     const token = authHeader.replace('Bearer ', '');
 
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const decoded = jwt.verify(token, JWT_SECRET as string) as any;
     
     // Добавляем ID агента в request для использования в роутах
     (req as any).agentId = decoded.id;
