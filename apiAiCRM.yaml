@@ -1,0 +1,513 @@
+openapi: 3.0.3
+info:
+  title: IP Backend API
+  description: API для управления заявками (leads) и агентами (agents)
+  version: 1.0.0
+servers:
+  - url: http://localhost:3000
+    description: Development server
+
+paths:
+  # ==================== LEADS (Заявки) ====================
+  /api/leads:
+    post:
+      summary: Создание новой заявки
+      tags:
+        - Leads
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - source
+                - firstName
+                - lastName
+                - phone
+              properties:
+                source:
+                  type: string
+                  description: Источник заявки (consultation, career, contact и т.п.)
+                  example: "consultation"
+                firstName:
+                  type: string
+                  description: Имя клиента
+                  example: "Иван"
+                lastName:
+                  type: string
+                  description: Фамилия клиента
+                  example: "Иванов"
+                middleName:
+                  type: string
+                  description: Отчество клиента (опционально)
+                  example: "Иванович"
+                phone:
+                  type: string
+                  description: Номер телефона
+                  example: "+7 900 000-00-00"
+                email:
+                  type: string
+                  format: email
+                  description: Email адрес (опционально)
+                  example: "user@example.com"
+                preferredTime:
+                  type: string
+                  description: Желаемое время связи (опционально)
+                  example: "Будни, вечер"
+                comment:
+                  type: string
+                  description: Комментарий (опционально)
+                  example: "Хочу обсудить ПДС"
+                idAgent:
+                  type: string
+                  format: uuid
+                  description: ID агента, которому назначена заявка (опционально)
+                  example: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        '201':
+          description: Заявка успешно создана
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    example: "new"
+                  createdAt:
+                    type: string
+                    format: date-time
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  errors:
+                    type: object
+                    additionalProperties:
+                      type: string
+
+    get:
+      summary: Получение списка заявок
+      tags:
+        - Leads
+      parameters:
+        - name: status
+          in: query
+          description: Фильтр по статусу
+          schema:
+            type: string
+          example: "new"
+        - name: idAgent
+          in: query
+          description: Фильтр по ID агента
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          description: Лимит количества записей
+          schema:
+            type: integer
+            minimum: 1
+          example: 10
+        - name: offset
+          in: query
+          description: Смещение для пагинации
+          schema:
+            type: integer
+            minimum: 0
+          example: 0
+      responses:
+        '200':
+          description: Список заявок
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Lead'
+
+  /api/leads/{id}:
+    patch:
+      summary: Обновление заявки
+      tags:
+        - Leads
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  description: Новый статус заявки
+                  example: "in_progress"
+                idAgent:
+                  type: string
+                  format: uuid
+                  description: ID агента для назначения
+                  example: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        '200':
+          description: Заявка успешно обновлена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Lead'
+        '400':
+          description: Ошибка валидации
+        '404':
+          description: Заявка не найдена
+
+  # ==================== AGENTS (Агенты) ====================
+  /api/agents:
+    post:
+      summary: Создание нового агента
+      tags:
+        - Agents
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - firstName
+                - lastName
+                - phone
+              properties:
+                firstName:
+                  type: string
+                  description: Имя агента
+                  example: "Петр"
+                lastName:
+                  type: string
+                  description: Фамилия агента
+                  example: "Петров"
+                middleName:
+                  type: string
+                  description: Отчество агента (опционально)
+                  example: "Петрович"
+                phone:
+                  type: string
+                  description: Номер телефона
+                  example: "+7 900 111-22-33"
+                email:
+                  type: string
+                  format: email
+                  description: Email адрес (опционально)
+                  example: "agent@example.com"
+                website:
+                  type: string
+                  format: uri
+                  description: Сайт агента (опционально)
+                  example: "https://agent-site.com"
+                telegramChannel:
+                  type: string
+                  description: Телеграм канал (опционально)
+                  example: "@agent_channel"
+                telegramBot:
+                  type: string
+                  description: Телеграм бот (опционально)
+                  example: "@agent_bot"
+                city:
+                  type: string
+                  description: Город (опционально)
+                  example: "Москва"
+                bankDetails:
+                  type: string
+                  description: Банковские реквизиты (опционально)
+                  example: "Р/С 40702810100000000000 в ПАО Сбербанк"
+                referralLinks:
+                  type: array
+                  description: Реферальные ссылки (опционально, может быть несколько)
+                  items:
+                    type: string
+                    format: uri
+                  example:
+                    - "https://referral-link-1.com"
+                    - "https://referral-link-2.com"
+      responses:
+        '201':
+          description: Агент успешно создан
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  createdAt:
+                    type: string
+                    format: date-time
+        '400':
+          description: Ошибка валидации
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  errors:
+                    type: object
+                    additionalProperties:
+                      type: string
+
+    get:
+      summary: Получение списка агентов
+      tags:
+        - Agents
+      parameters:
+        - name: city
+          in: query
+          description: Фильтр по городу
+          schema:
+            type: string
+          example: "Москва"
+        - name: limit
+          in: query
+          description: Лимит количества записей
+          schema:
+            type: integer
+            minimum: 1
+          example: 10
+        - name: offset
+          in: query
+          description: Смещение для пагинации
+          schema:
+            type: integer
+            minimum: 0
+          example: 0
+      responses:
+        '200':
+          description: Список агентов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Agent'
+
+  /api/agents/{id}:
+    get:
+      summary: Получение агента по ID
+      tags:
+        - Agents
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Данные агента
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+        '404':
+          description: Агент не найден
+
+    patch:
+      summary: Обновление агента
+      tags:
+        - Agents
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Все поля опциональны, обновляются только переданные
+              properties:
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+                middleName:
+                  type: string
+                phone:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                website:
+                  type: string
+                  format: uri
+                telegramChannel:
+                  type: string
+                telegramBot:
+                  type: string
+                city:
+                  type: string
+                bankDetails:
+                  type: string
+                referralLinks:
+                  type: array
+                  items:
+                    type: string
+                    format: uri
+      responses:
+        '200':
+          description: Агент успешно обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agent'
+        '400':
+          description: Ошибка валидации
+        '404':
+          description: Агент не найден
+
+    delete:
+      summary: Удаление агента
+      tags:
+        - Agents
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Агент успешно удалён
+        '404':
+          description: Агент не найден
+
+  # ==================== Health Check ====================
+  /health:
+    get:
+      summary: Проверка работоспособности сервера
+      tags:
+        - System
+      responses:
+        '200':
+          description: Сервер работает
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+
+components:
+  schemas:
+    Lead:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        source:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        middleName:
+          type: string
+          nullable: true
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+          nullable: true
+        preferredTime:
+          type: string
+          nullable: true
+        comment:
+          type: string
+          nullable: true
+        idAgent:
+          type: string
+          format: uuid
+          nullable: true
+          description: ID назначенного агента
+        status:
+          type: string
+          example: "new"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Agent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        middleName:
+          type: string
+          nullable: true
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+          nullable: true
+        website:
+          type: string
+          format: uri
+          nullable: true
+        telegramChannel:
+          type: string
+          nullable: true
+        telegramBot:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        bankDetails:
+          type: string
+          nullable: true
+        referralLinks:
+          type: array
+          items:
+            type: string
+            format: uri
+          nullable: true
+          description: Массив реферальных ссылок
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
