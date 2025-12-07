@@ -153,12 +153,13 @@ async function createDefaultAgent(): Promise<void> {
     if (agents.length === 0) {
       // Получаем данные дефолтного агента из переменных окружения или используем значения по умолчанию
       const defaultAgentId = process.env.DEFAULT_AGENT_ID || '00000000-0000-0000-0000-000000000001';
-      const firstName = process.env.DEFAULT_AGENT_FIRST_NAME || 'Администратор';
-      const lastName = process.env.DEFAULT_AGENT_LAST_NAME || 'Системы';
+      const firstName = process.env.DEFAULT_AGENT_FIRST_NAME || 'Александр';
+      const lastName = process.env.DEFAULT_AGENT_LAST_NAME || 'Виссаров';
       const middleName = process.env.DEFAULT_AGENT_MIDDLE_NAME || null;
-      const phone = process.env.DEFAULT_AGENT_PHONE || '+7 900 000-00-00';
-      const email = process.env.DEFAULT_AGENT_EMAIL || null;
+      const phone = process.env.DEFAULT_AGENT_PHONE || '+79773575301';
+      const email = process.env.DEFAULT_AGENT_EMAIL || 'vissarovav@bank-future.com';
       const city = process.env.DEFAULT_AGENT_CITY || 'Москва';
+      const telegramChannel = process.env.DEFAULT_AGENT_TELEGRAM || '@alex_vitte';
       
       // Логин и пароль для дефолтного агента
       const login = process.env.DEFAULT_AGENT_LOGIN || 'admin';
@@ -167,12 +168,11 @@ async function createDefaultAgent(): Promise<void> {
       // Хешируем пароль
       const bcrypt = await import('bcrypt');
       const passwordHash = await bcrypt.default.hash(password, 10);
-      
-      const now = new Date().toISOString();
 
+      // Не передаём created_at и updated_at - они заполнятся автоматически через DEFAULT CURRENT_TIMESTAMP
       await dbRun(
-        `INSERT INTO agents (id, first_name, last_name, middle_name, phone, email, login, password_hash, city, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO agents (id, first_name, last_name, middle_name, phone, email, login, password_hash, city, telegram_channel)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           defaultAgentId,
           firstName,
@@ -183,13 +183,13 @@ async function createDefaultAgent(): Promise<void> {
           login,
           passwordHash,
           city,
-          now,
-          now,
+          telegramChannel,
         ]
       );
 
       console.log(`Default agent created: ${lastName} ${firstName} (ID: ${defaultAgentId})`);
       console.log(`Login: ${login}, Password: ${password}`);
+      console.log(`Email: ${email}, Phone: ${phone}, Telegram: ${telegramChannel}`);
       console.log('⚠️  IMPORTANT: Change default password after first login!');
     }
   } catch (error) {
